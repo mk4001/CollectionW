@@ -35,7 +35,7 @@ This document is the support-facing reference for everything the app does. It mi
 9. [Privacy and security](#privacy-and-security)
 10. [Appearance and language](#appearance-and-language)
 11. [Help and documentation](#help-and-documentation)
-12. [Collection Weapons Pro (subscription)](#collection-weapons-pro-subscription)
+12. [Collection Weapons Pro (subscription or lifetime)](#collection-weapons-pro-subscription-or-lifetime)
 13. [Platform differences at a glance](#platform-differences-at-a-glance)
 14. [Currency handling](#currency-handling)
 15. [Architecture and tech stack](#architecture-and-tech-stack)
@@ -49,7 +49,7 @@ Collection Weapons catalogs a firearms collection the way a serious collector ac
 
 Every record syncs automatically across a user's Mac, iPhone, and iPad through their own private iCloud account. There is no sign-up, no MF-Lab server, and no way for MF-Lab to see a user's data — see [Privacy and security](#privacy-and-security).
 
-The app ships as **one single Xcode multiplatform target** (not two separate macOS/iOS apps), so it appears as one product on the App Store with both Mac and iPhone/iPad support, and a Pro subscription purchased on either platform unlocks the other automatically.
+The app ships as **one single Xcode multiplatform target** (not two separate macOS/iOS apps), so it appears as one product on the App Store with both Mac and iPhone/iPad support, and a Pro purchase (subscription or lifetime) made on either platform unlocks the other automatically.
 
 ## Requirements
 
@@ -210,7 +210,7 @@ A record of one outing to the range or the field — what you shot, with what, h
 | `distanza` — Distance | Decimal + unit | Meters or feet — defaults to the device's own measurement system |
 | `costo` — Cost | Number + currency | Counted in Shooting Analytics (see [Analytics](#analytics)), not in the collection's main totals |
 | `note` — Notes | Multiline text | |
-| Score | Repeatable decimals | One row per series/stage, summed into a running total — deliberately excluded from every PDF/CSV export |
+| Score | Repeatable rows, discipline-dependent | Generic: one number per series/stage, summed into a running total. IDPA, IPSC/USPSA, and LSSA-CSEN replace this with real per-discipline scoring — see below |
 | GPS location | Optional, off by default | Address + coordinates, captured once when turned on; tap to open in Maps |
 | Altitude | Optional | From the device's own barometric sensor (iPhone 6 and later), not GPS-derived — no fallback where unavailable |
 | Weather | Optional, off by default | Temperature, humidity, wind speed/direction, atmospheric pressure — fetched for the session's location and moment |
@@ -218,6 +218,16 @@ A record of one outing to the range or the field — what you shot, with what, h
 | Photos/Videos | 1-to-many | **iPhone/iPad only** — captured directly from the session's own camera screen and saved to the device's system Photos library, not duplicated into this app's iCloud database |
 
 Location is treated as sensitive by default: GPS and weather are each their own off-by-default toggle, and turning one on affects only that single session.
+
+**IDPA, IPSC/USPSA, and LSSA-CSEN scoring** — choosing one of these disciplines as a session's Type replaces the generic Score list with that discipline's actual scoring rules, entered by tapping a zone button per string (Down 0/1/3 for IDPA, A/C/D for IPSC/USPSA/LSSA-CSEN, one button per official penalty) instead of typing numbers, with an Undo button for the last tap — built for one-handed use on the range, not at a keyboard:
+
+| Field | Type | Notes |
+|---|---|---|
+| IDPA string | Time + zone/penalty counts | Down 0/1/3, Miss, Procedural Error, Non-Threat, Failure to Neutralize, Flagrant — raw time plus every penalty in seconds, per the official IDPA rulebook. A **lower** final time is better. Down 0 is tracked for the record but never adds time |
+| IPSC/USPSA/LSSA-CSEN Power Factor | Major / Minor, per session | Chosen once for the whole session — determines each zone's point value (A/C/D); LSSA-CSEN uses the identical Comstock scoring rules, only its Power Factor threshold differs (handled by the reloading Power Factor above, a separate concern from this scoring field) |
+| IPSC/USPSA/LSSA-CSEN string | Time + zone/penalty counts | A/C/D, Miss, Procedural Error, No-Shoot, Failure to Neutralize, Flagrant — points minus penalties, divided by time for that string's Hit Factor. A **higher** number is better |
+
+On iPhone only, the Score section's background is tinted with a color specific to the session's Type — derived automatically from its position among all 17 types, so any discipline added in the future gets its own distinct color without a hand-maintained table. Mac doesn't get this tint, since scoring happens on the range, not at a desk. Hit Factor here is a raw points-per-second figure for a string or session, not a match placement percentage — that would need every other competitor's scores, which this app has no way to know.
 
 ### Shooter Profile & Membership Cards
 
@@ -276,7 +286,7 @@ Three complementary ways to get data in, each suited to a different situation �
 
 ## Export and backup
 
-- **PDF export** (Weapons, Accessories, and Shooting Sessions, both platforms — the Shooter Profile has its own separate export, see below): a **mail-merge** system, not a fixed layout — templates are ordinary `.rtfd` files (designable in TextEdit or Pages) containing `{{token}}` placeholders that get replaced with real record data at export time, plus one placeholder image for the photo. Weapons and Accessories offer three built-in templates (**Simple** — a plain table for a quick inventory; **Insurance/Appraisal** — every field including serial number, medium photo, formal tone; **Photographic** — large photo, minimal text); Shooting Sessions offer only **Simple**, a dedicated table layout with no photo (a session's photos/videos live in the system Photos library, not data the export engine can embed) and a second summary line per row for whatever GPS/weather data that session has. Every entity also accepts a fully custom user-supplied template. Export can be scoped to the whole collection or to a manually/query-filtered selection (a full query builder — field, operator, value, combined with AND — mirrors the same sortable fields used for sorting), with page orientation and per-record page breaks configurable independently of the template chosen. Score is deliberately excluded from every export, same choice as the Power Factor chronograph readings.
+- **PDF export** (Weapons, Accessories, and Shooting Sessions, both platforms — the Shooter Profile has its own separate export, see below): a **mail-merge** system, not a fixed layout — templates are ordinary `.rtfd` files (designable in TextEdit or Pages) containing `{{token}}` placeholders that get replaced with real record data at export time, plus one placeholder image for the photo. Weapons and Accessories offer three built-in templates (**Simple** — a plain table for a quick inventory; **Insurance/Appraisal** — every field including serial number, medium photo, formal tone; **Photographic** — large photo, minimal text); Shooting Sessions offer only **Simple**, a dedicated table layout with no photo (a session's photos/videos live in the system Photos library, not data the export engine can embed) and a second summary line per row for whatever GPS/weather data that session has. Every entity also accepts a fully custom user-supplied template. Export can be scoped to the whole collection or to a manually/query-filtered selection (a full query builder — field, operator, value, combined with AND — mirrors the same sortable fields used for sorting), with page orientation and per-record page breaks configurable independently of the template chosen. Score is included as a summary line per session (`punteggio` token — generic total, IDPA time, or Power Factor/points/Hit Factor, whichever applies) and, for IDPA/IPSC/USPSA/LSSA-CSEN, a further per-string breakdown line (`dettaglioStringhe`); Power Factor chronograph readings remain excluded.
 
   <details>
   <summary>Mail-merge token reference</summary>
@@ -285,13 +295,14 @@ Three complementary ways to get data in, each suited to a different situation �
 
   **Accessory**: `categoria` `sottocategoria` `marca` `modello` `calibro` `quantita` `prezzoAcquisto` `dataAcquisto` `valoreCommerciale` `prezzoVendita` `dataVendita` `vendutoA` `note`
 
-  **Shooting Session**: `tipoSessione` `arma` (Weapon or Kit name) `munizione` `data` `colpiSparati` `distanza` `costo` `note` `indirizzoGPS` `latitudine` `longitudine` `altitudineMetri` `temperaturaCelsius` `umiditaPercento` `velocitaVentoKmh` `direzioneVentoGradi` `pressioneAtmosfericaHPa` `condizioni` (a combined summary joining every GPS/weather field above into one line)
+  **Shooting Session**: `tipoSessione` `arma` (Weapon or Kit name) `munizione` `data` `colpiSparati` `distanza` `costo` `note` `indirizzoGPS` `latitudine` `longitudine` `altitudineMetri` `temperaturaCelsius` `umiditaPercento` `velocitaVentoKmh` `direzioneVentoGradi` `pressioneAtmosfericaHPa` `condizioni` (a combined summary joining every GPS/weather field above into one line) `punteggio` (score summary line, discipline-dependent) `dettaglioStringhe` (per-string breakdown, IDPA/IPSC/USPSA/LSSA-CSEN only)
 
   Tokens are case-sensitive, contain no internal spaces, may repeat anywhere in the template, and an unrecognized token is simply printed literally — useful for spotting a typo. The full, illustrated version of this reference, including a step-by-step guide to building a template from scratch, lives in Chapter 16 of the [PDF manual](#help-and-documentation).
   </details>
 
 - **Shooter Profile export**: a separate, simpler PDF export flow, since a single record has no list to filter or select from — Simple or Photographic template only (no Insurance/Appraisal, no custom templates), with your details and a table of every Membership Card on file.
-- **CSV export** (Weapons, Accessories, Shooting Sessions, and Membership Cards, both platforms): one file per entity, with the exact same column headers and order used by CSV import for the entities that support import — a file exported here re-imports without remapping, and doubles as a portable spreadsheet backup. Shooting Sessions' GPS/weather columns are always in their own canonical unit (meters, °C, km/h, hPa) rather than the user's locale, for an unambiguous round trip; Score is not included, same exclusion as PDF export. New/Reloaded Ammunition, Kits, and Maintenance have no CSV export. Decimal separator is always a period and dates are always ISO (`yyyy-MM-dd`), independent of the user's locale.
+- **CSV export** (Weapons, Accessories, Shooting Sessions, and Membership Cards, both platforms): one file per entity, with the exact same column headers and order used by CSV import for the entities that support import — a file exported here re-imports without remapping, and doubles as a portable spreadsheet backup. Shooting Sessions' GPS/weather columns are always in their own canonical unit (meters, °C, km/h, hPa) rather than the user's locale, for an unambiguous round trip; the session-level Score (generic total, IDPA time, or Power Factor/points/Hit Factor) is included as ordinary columns. New/Reloaded Ammunition, Kits, and Maintenance have no CSV export. Decimal separator is always a period and dates are always ISO (`yyyy-MM-dd`), independent of the user's locale.
+- **IDPA/IPSC/USPSA/LSSA-CSEN Strings export** (two separate CSVs, both platforms): one row per string of fire rather than per session — the only way to make a discipline's full zone-by-zone breakdown usable for sorting, filtering, or summing in a spreadsheet, instead of one crammed cell. "IDPA Strings" covers Down 0/1/3 and every IDPA penalty with the final time per string; "IPSC/USPSA/LSSA-CSEN Strings" covers A/C/D and every Comstock penalty with points and Hit Factor per string, plus the session's Power Factor category (the same file for all three disciplines, which share identical scoring rules).
 - **Full backup & restore** (macOS only): a folder package (`manifest.json` + `data.json` + a `Photos/` folder of original JPEGs) covering **every** record type — including Kits, Maintenance, Shooting Sessions, and the Shooter Profile — saved and restored anywhere via the standard system file panel, entirely independent of iCloud. Restore is a full replace of the local/synced database, with an explicit confirmation naming the operation as destructive.
 
 ## Analytics
@@ -302,7 +313,7 @@ A dashboard (Settings gear → Analytics, universal on both platforms since it's
 - **Cash flow**: a line chart per family (Weapons/Accessories/Ammunition) of purchases (red) against sales (green), aggregated by month — only months with an actual movement occupy a slot on the axis, so a collection with sparse, irregular activity doesn't produce an unreadable, evenly-spaced calendar axis.
 - **Distribution**: a horizontal bar chart of record count by brand or by caliber (switchable), per family, capped at the top 10 with an explicit "+N more" note beyond that.
 - **Gain/loss**: for every non-sold piece with both a purchase price and a current market value on file, the exact difference between the two — per piece and aggregated per family, plus a separate **realized** gain/loss view for pieces that have actually been sold (sale price minus purchase price).
-- **Shooting Analytics** — a section of its own, separate from the four cards above and built from Shooting Sessions instead of Weapons/Accessories/Ammunition, so session costs never bleed into the collection-value totals: a bar chart of costs per session date, a line chart tracking each session's cost over time, and an average-score card (shown only when at least one session has a Score entry) that stays visible even with monetary values hidden, since it isn't a monetary figure.
+- **Shooting Analytics** — a section of its own, separate from the four cards above and built from Shooting Sessions instead of Weapons/Accessories/Ammunition, so session costs never bleed into the collection-value totals: a bar chart of costs per session date, a line chart tracking each session's cost over time, and up to three separate average-score cards (each shown only when at least one session has that kind of Score entry) — the generic average score, average IDPA time, and average IPSC/USPSA/LSSA-CSEN Hit Factor — all staying visible even with monetary values hidden, since none of them is a monetary figure.
 
 ## Privacy and security
 
@@ -323,9 +334,9 @@ A dashboard (Settings gear → Analytics, universal on both platforms since it's
 - **In-app guide** (`[?]` button, both platforms, plus the Help menu on Mac): a real manual, one topic per feature — not a marketing tour — with full-text search across titles, summaries, and body text. Available in Italian and English today; other languages fall back to English.
 - **Full PDF manual, all 11 languages**: a separate, far more detailed document — one PDF per language, each with a cover, a real table of contents with working page numbers, 21 chapters covering every feature in depth, and a full field-reference appendix for every record type, including the mail-merge token tables above. One tap away from the in-app Help screen, which opens the manual for the **currently active app language** in the system browser. Arabic is properly right-to-left with contextual letter shaping; every language uses a properly embedded font (not a built-in PDF font limited to Western Latin characters), so Cyrillic, CJK, Thai, and Arabic text all render correctly rather than as blank boxes.
 
-## Collection Weapons Pro (subscription)
+## Collection Weapons Pro (subscription or lifetime)
 
-An optional auto-renewable subscription (monthly or annual, with a 7-day free trial), processed entirely through Apple's StoreKit — MF-Lab never sees payment details, only whether a subscription is currently active.
+Pro is available as an optional auto-renewable subscription (monthly or annual, with a 7-day free trial) **or** as a one-time **Lifetime** purchase (non-consumable, `MFCorp.CollectionWMacOS.lifetime`: no expiry, no renewal, no trial). Both are processed entirely through Apple's StoreKit — MF-Lab never sees payment details, only whether Pro is currently active. The paywall shows the three plans side by side; if a user holds both a subscription and Lifetime, Lifetime takes precedence, and Settings › Subscription hides the "Manage Subscription" button since there is nothing to cancel.
 
 **Free, forever, no account:**
 - Up to **3 records** in each of **seven** categories (Weapons, Accessories, New Ammunition, Reloaded Ammunition, Kits, Maintenance, Shooting Sessions) — existing records beyond that count, from before upgrading or downgrading, are never hidden or locked, only *new* inserts beyond the limit are blocked
@@ -345,7 +356,7 @@ An optional auto-renewable subscription (monthly or annual, with a 7-day free tr
 
 Analytics, the Shooter Profile section, and Currency settings are **fully locked** behind Pro regardless of record count — not just capped like the other categories above.
 
-Because the app is a single multiplatform product with one App Store listing (not two separate apps), **a subscription purchased on one platform unlocks Pro on every platform** the same Apple ID uses the app on — no separate purchase needed for Mac vs. iPhone/iPad.
+Because the app is a single multiplatform product with one App Store listing (not two separate apps), **a subscription or Lifetime purchase made on one platform unlocks Pro on every platform** the same Apple ID uses the app on — no separate purchase needed for Mac vs. iPhone/iPad. "Restore Purchases" (Settings › Subscription) recovers either kind on a new device.
 
 ## Platform differences at a glance
 
